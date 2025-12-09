@@ -30,7 +30,7 @@ npm run build
 npm run package
 ```
 
-This generates `gitlab-fe-selector-dynamic-1.1.0.tgz` in the project root.
+This generates `gitlab-fe-selector-dynamic-1.1.1.tgz` in the project root.
 
 #### Deploy
 
@@ -40,9 +40,9 @@ Host the `.tgz` file on a web server or copy it to a location accessible by RHDH
 
 ```yaml
 plugins:
-  - package: ./local-plugins/gitlab-fe-selector-dynamic-1.1.0.tgz
+  - package: ./local-plugins/gitlab-fe-selector-dynamic-1.1.1.tgz
     # OR remote URL:
-    # package: https://your-server.com/gitlab-fe-selector-dynamic-1.1.0.tgz
+    # package: https://your-server.com/gitlab-fe-selector-dynamic-1.1.1.tgz
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -61,10 +61,10 @@ plugins:
 
 ```bash
 # Using Podman (default)
-npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1
 
 # Using Docker
-npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0 --container-tool docker
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1 --container-tool docker
 ```
 
 #### Push to Registry
@@ -75,15 +75,15 @@ podman login quay.io
 # or: docker login quay.io
 
 # Push the image
-podman push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0
-# or: docker push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0
+podman push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1
+# or: docker push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1
 ```
 
 #### Configure dynamic-plugins.yaml
 
 ```yaml
 plugins:
-  - package: oci://quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0!gitlab-fe-selector
+  - package: oci://quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1!gitlab-fe-selector
     disabled: false
     pluginConfig:
       dynamicPlugins:
