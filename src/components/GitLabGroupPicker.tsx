@@ -55,6 +55,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   const [selectedProject, setSelectedProject] = useState<GitLabProject | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [tokenScope, setTokenScope] = useState<string | null>(null);
+  const [authEnv, setAuthEnv] = useState<string>(AUTH_ENVIRONMENTS[0]); // Track which env works
   const [needsAuth, setNeedsAuth] = useState(false);
   const [insufficientScope, setInsufficientScope] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +85,8 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
           const scope = data.providerInfo?.scope || '';
           
           if (accessToken) {
+            setAuthEnv(env); // Remember which environment worked
+            
             if (!hasRequiredScope(scope)) {
               setTokenScope(scope);
               setInsufficientScope(true);
@@ -118,7 +121,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
     const top = window.screenY + (window.innerHeight - height) / 2;
     
     const popup = window.open(
-      '/api/auth/gitlab/start?env=development',
+      `/api/auth/gitlab/start?env=${authEnv}`,
       'GitLab Sign In',
       `width=${width},height=${height},left=${left},top=${top}`
     );
@@ -134,7 +137,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
         setTimeout(() => fetchToken(), 1000);
       }
     }, 500);
-  }, [fetchToken]);
+  }, [authEnv, fetchToken]);
 
   const getHeaders = useCallback((): Record<string, string> => {
     if (!token) return {};

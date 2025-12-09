@@ -1,6 +1,6 @@
 {
   "name": "gitlab-fe-selector",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A RHDH 1.8 Frontend Plugin for selecting GitLab groups and repositories with owner access.",
   "main": "src/index.ts",
   "types": "src/index.ts",
