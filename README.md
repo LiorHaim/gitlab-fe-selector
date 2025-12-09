@@ -12,21 +12,31 @@ A frontend dynamic plugin for Red Hat Developer Hub (RHDH) 1.8+ that provides a 
 
 ## Installation
 
-### 1. Build and Package
+### 1. Build the Plugin
 
 ```bash
 npm install
 npm run build
+```
+
+### 2. Choose Your Packaging Method
+
+<details>
+<summary><b>Option A: Tarball (.tgz)</b></summary>
+
+#### Package as Tarball
+
+```bash
 npm run package
 ```
 
 This generates `gitlab-fe-selector-dynamic-1.1.0.tgz` in the project root.
 
-### 2. Deploy to RHDH
+#### Deploy
 
 Host the `.tgz` file on a web server or copy it to a location accessible by RHDH.
 
-### 3. Configure dynamic-plugins.yaml
+#### Configure dynamic-plugins.yaml
 
 ```yaml
 plugins:
@@ -41,6 +51,58 @@ plugins:
             scaffolderFieldExtensions:
               - importName: GitLabGroupPickerFieldExtension
 ```
+
+</details>
+
+<details>
+<summary><b>Option B: OCI Image</b></summary>
+
+#### Package as OCI Image
+
+```bash
+# Using Podman (default)
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0
+
+# Using Docker
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0 --container-tool docker
+```
+
+#### Push to Registry
+
+```bash
+# Login to your registry
+podman login quay.io
+# or: docker login quay.io
+
+# Push the image
+podman push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0
+# or: docker push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0
+```
+
+#### Configure dynamic-plugins.yaml
+
+```yaml
+plugins:
+  - package: oci://quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.0!gitlab-fe-selector
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          gitlab-fe-selector:
+            scaffolderFieldExtensions:
+              - importName: GitLabGroupPickerFieldExtension
+```
+
+#### OCI Packaging Options
+
+| Option | Description |
+|--------|-------------|
+| `-t, --tag <tag>` | **Required** - Image tag (e.g., `quay.io/user/plugin:1.0.0`) |
+| `--container-tool <tool>` | `podman` (default), `docker`, or `buildah` |
+| `--platform <platform>` | Target platform (default: `linux/amd64`) |
+| `--force-export` | Rebuild `dist-dynamic` even if it exists |
+
+</details>
 
 ## Required Configuration
 
