@@ -122,7 +122,6 @@ auth:
         ## REQUIRED: read_api scope is needed to list groups ##
         additionalScopes:
           - read_api
-          - read_repository
         signIn:
           resolvers:
             - resolver: emailMatchingUserEntityProfileEmail
