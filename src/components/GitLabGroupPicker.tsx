@@ -43,7 +43,8 @@ const hasRequiredScope = (tokenScope: string): boolean => {
 };
 
 // Auth environments to try (in order of priority)
-const AUTH_ENVIRONMENTS = ['development', 'production'];
+// Add more environment names here if your RHDH uses different names
+const AUTH_ENVIRONMENTS = ['development', 'production', 'staging', 'default'];
 
 export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   const { onChange, rawErrors, uiSchema } = props;

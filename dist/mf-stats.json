@@ -1,0 +1,154 @@
+{
+  "id": "gitlab_fe_selector",
+  "name": "gitlab_fe_selector",
+  "metaData": {
+    "name": "gitlab_fe_selector",
+    "type": "app",
+    "buildInfo": {
+      "buildVersion": "1.1.3",
+      "buildName": "gitlab-fe-selector"
+    },
+    "remoteEntry": {
+      "name": "remoteEntry.js",
+      "path": "",
+      "type": "global"
+    },
+    "types": {
+      "path": "",
+      "name": "",
+      "zip": "@mf-types.zip",
+      "api": "@mf-types.d.ts"
+    },
+    "globalName": "gitlab_fe_selector",
+    "pluginVersion": "0.9.1",
+    "prefetchInterface": false,
+    "publicPath": "auto"
+  },
+  "shared": [
+    {
+      "singleton": true,
+      "requiredVersion": "*",
+      "shareScope": "default",
+      "eager": false,
+      "name": "@material-ui/core/styles",
+      "version": "4.12.4",
+      "id": "gitlab_fe_selector:@material-ui/core/styles",
+      "assets": {
+        "js": {
+          "async": [
+            "static/237.ae47a773.chunk.js",
+            "static/261.5804cc34.chunk.js"
+          ],
+          "sync": [
+            "static/682.c1821451.chunk.js",
+            "static/804.b6e005fb.chunk.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "singleton": true,
+      "requiredVersion": "*",
+      "shareScope": "default",
+      "eager": false,
+      "name": "@material-ui/styles",
+      "version": "4.11.5",
+      "id": "gitlab_fe_selector:@material-ui/styles",
+      "assets": {
+        "js": {
+          "async": [
+            "static/237.ae47a773.chunk.js"
+          ],
+          "sync": [
+            "static/261.5804cc34.chunk.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "singleton": true,
+      "requiredVersion": "*",
+      "shareScope": "default",
+      "eager": false,
+      "name": "react-dom",
+      "version": "18.3.1",
+      "id": "gitlab_fe_selector:react-dom",
+      "assets": {
+        "js": {
+          "async": [
+            "static/237.ae47a773.chunk.js"
+          ],
+          "sync": [
+            "static/98.dfe9a140.chunk.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "singleton": true,
+      "requiredVersion": "*",
+      "shareScope": "default",
+      "eager": false,
+      "name": "react",
+      "version": "18.3.1",
+      "id": "gitlab_fe_selector:react",
+      "assets": {
+        "js": {
+          "async": [],
+          "sync": [
+            "static/237.ae47a773.chunk.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    }
+  ],
+  "remotes": [],
+  "exposes": [
+    {
+      "path": ".",
+      "id": "gitlab_fe_selector:.",
+      "name": ".",
+      "requires": [],
+      "file": "src/index.ts",
+      "assets": {
+        "js": {
+          "sync": [
+            "static/866.ab031a90.chunk.js",
+            "static/179.176235a5.chunk.js",
+            "static/__federation_expose_default_export.a1449ffd.chunk.js"
+          ],
+          "async": [
+            "static/237.ae47a773.chunk.js",
+            "static/261.5804cc34.chunk.js",
+            "static/98.dfe9a140.chunk.js",
+            "static/682.c1821451.chunk.js"
+          ]
+        },
+        "css": {
+          "sync": [],
+          "async": []
+        }
+      }
+    }
+  ]
+}

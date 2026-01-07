@@ -30,7 +30,7 @@ npm run build
 npm run package
 ```
 
-This generates `gitlab-fe-selector-dynamic-1.1.1.tgz` in the project root.
+This generates `gitlab-fe-selector-dynamic-1.1.3.tgz` in the project root.
 
 #### Deploy
 
@@ -40,9 +40,9 @@ Host the `.tgz` file on a web server or copy it to a location accessible by RHDH
 
 ```yaml
 plugins:
-  - package: ./local-plugins/gitlab-fe-selector-dynamic-1.1.1.tgz
+  - package: ./local-plugins/gitlab-fe-selector-dynamic-1.1.3.tgz
     # OR remote URL:
-    # package: https://your-server.com/gitlab-fe-selector-dynamic-1.1.1.tgz
+    # package: https://your-server.com/gitlab-fe-selector-dynamic-1.1.3.tgz
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -61,10 +61,10 @@ plugins:
 
 ```bash
 # Using Podman (default)
-npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3
 
 # Using Docker
-npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1 --container-tool docker
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3 --container-tool docker
 ```
 
 #### Push to Registry
@@ -75,15 +75,15 @@ podman login quay.io
 # or: docker login quay.io
 
 # Push the image
-podman push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1
-# or: docker push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1
+podman push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3
+# or: docker push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3
 ```
 
 #### Configure dynamic-plugins.yaml
 
 ```yaml
 plugins:
-  - package: oci://quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.1!gitlab-fe-selector
+  - package: oci://quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3!gitlab-fe-selector
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -112,10 +112,10 @@ The GitLab OAuth provider **must** include `read_api` scope for this plugin to w
 
 ```yaml
 auth:
-  environment: development
+  environment: development  # See "Auth Environment Detection" below
   providers:
     gitlab:
-      development:
+      development:  # Must match auth.environment value
         clientId: ${AUTH_GITLAB_CLIENT_ID}
         clientSecret: ${AUTH_GITLAB_CLIENT_SECRET}
         audience: https://gitlab.example.com
@@ -134,6 +134,8 @@ integrations:
 ```
 
 > **Important:** After adding `additionalScopes`, users must revoke the existing RHDH/Backstage app in GitLab (User Settings → Applications) and re-authenticate to get a token with the new scopes.
+
+> **Environment Names:** The plugin tries `development`, `production`, `staging`, and `default` in order. See [Auth Environment Detection](#auth-environment-detection) for details.
 
 ## Usage in Scaffolder Templates
 
@@ -182,6 +184,19 @@ spec:
 4. **Repository Selection** - Lists projects within the selected group
 5. **Token Passthrough** - The `requestUserCredentials` option captures the token for use in template steps
 
+### Auth Environment Detection
+
+The plugin automatically tries common auth environment names in order:
+
+| Attempt | Environment Name |
+|---------|------------------|
+| 1st | `development` |
+| 2nd | `production` |
+| 3rd | `staging` |
+| 4th | `default` |
+
+**Note:** If your RHDH uses a different environment name, you'll need to modify `AUTH_ENVIRONMENTS` in the source code (`src/components/GitLabGroupPicker.tsx`) and rebuild the plugin.
+
 ## Troubleshooting
 
 ### "Additional Permissions Required" Error
@@ -202,6 +217,13 @@ The OAuth token doesn't have `read_api` scope. Fix:
 
 - User may not have Owner access to any GitLab groups
 - Verify `allowedHosts` matches the GitLab instance in `app-config.yaml`
+
+### Auth Environment Not Detected
+
+If your environment name is not `development`, `production`, `staging`, or `default`:
+
+- Rename your environment to one of the supported names in `app-config.yaml`
+- Or modify `AUTH_ENVIRONMENTS` in `src/components/GitLabGroupPicker.tsx` to include your environment name and rebuild
 
 ## License
 
