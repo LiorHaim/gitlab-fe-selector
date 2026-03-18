@@ -4,6 +4,16 @@ A frontend dynamic plugin for Red Hat Developer Hub (RHDH) 1.8+ that provides a 
 
 **Key Feature:** Only shows GitLab groups where the authenticated user has **Owner** access (`min_access_level=50`).
 
+## What's New in 1.2.0
+
+- **Pagination** - Groups and repositories are now fully paginated; no longer limited to the first 100 results
+- **State Restoration** - Navigating back in the scaffolder preserves your group/repository selection
+- **Field Validation** - The field extension now validates that both a group and repository are selected
+- **Project Error Reporting** - Repository fetch failures are now surfaced in the UI instead of silently swallowed
+- **Unmount Safety** - Fixed a potential memory leak where the auth popup polling interval could outlive the component
+- **Modular Codebase** - Extracted `useGitLabAuth` hook and shared utilities for better maintainability and testability
+- **Test Suite** - Added unit tests for all utility functions and pagination logic
+
 ## Prerequisites
 
 - Red Hat Developer Hub 1.8+
@@ -30,7 +40,7 @@ npm run build
 npm run package
 ```
 
-This generates `gitlab-fe-selector-dynamic-1.1.3.tgz` in the project root.
+This generates `gitlab-fe-selector-dynamic-1.2.0.tgz` in the project root.
 
 #### Deploy
 
@@ -40,9 +50,9 @@ Host the `.tgz` file on a web server or copy it to a location accessible by RHDH
 
 ```yaml
 plugins:
-  - package: ./local-plugins/gitlab-fe-selector-dynamic-1.1.3.tgz
+  - package: ./local-plugins/gitlab-fe-selector-dynamic-1.2.0.tgz
     # OR remote URL:
-    # package: https://your-server.com/gitlab-fe-selector-dynamic-1.1.3.tgz
+    # package: https://your-server.com/gitlab-fe-selector-dynamic-1.2.0.tgz
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -61,10 +71,10 @@ plugins:
 
 ```bash
 # Using Podman (default)
-npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.2.0
 
 # Using Docker
-npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3 --container-tool docker
+npx rhdh-cli plugin package --tag quay.io/YOUR_USERNAME/gitlab-fe-selector:1.2.0 --container-tool docker
 ```
 
 #### Push to Registry
@@ -75,15 +85,15 @@ podman login quay.io
 # or: docker login quay.io
 
 # Push the image
-podman push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3
-# or: docker push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3
+podman push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.2.0
+# or: docker push quay.io/YOUR_USERNAME/gitlab-fe-selector:1.2.0
 ```
 
 #### Configure dynamic-plugins.yaml
 
 ```yaml
 plugins:
-  - package: oci://quay.io/YOUR_USERNAME/gitlab-fe-selector:1.1.3!gitlab-fe-selector
+  - package: oci://quay.io/YOUR_USERNAME/gitlab-fe-selector:1.2.0!gitlab-fe-selector
     disabled: false
     pluginConfig:
       dynamicPlugins:

@@ -2,6 +2,7 @@
 node_modules/
 
 # Build outputs
+dist/
 dist-dynamic/
 dist-pkg/
 
@@ -16,4 +17,3 @@ dist-pkg/
 .vscode/
 *.swp
 *.swo
-

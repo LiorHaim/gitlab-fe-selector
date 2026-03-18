@@ -1,20 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { TextField, CircularProgress, FormControl, FormHelperText, Typography, Box, Button } from '@material-ui/core';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  TextField,
+  CircularProgress,
+  FormControl,
+  FormHelperText,
+  Typography,
+  Box,
+  Button,
+} from '@material-ui/core';
 import Autocomplete from '@material-ui/lab/Autocomplete';
-import { useAsync } from 'react-use';
-
-interface GitLabGroup {
-  id: number;
-  full_path: string;
-  name: string;
-}
-
-interface GitLabProject {
-  id: number;
-  path_with_namespace: string;
-  name: string;
-  web_url: string;
-}
+import { useGitLabAuth } from '../hooks/useGitLabAuth';
+import {
+  GitLabGroup,
+  GitLabProject,
+  fetchAllPages,
+  buildRepoUrl,
+  parseRepoUrl,
+} from '../utils/gitlab';
 
 interface GitLabGroupPickerProps {
   onChange: (value: string) => void;
@@ -22,199 +24,220 @@ interface GitLabGroupPickerProps {
   formData?: string;
   uiSchema?: {
     'ui:options'?: {
-        allowedHosts?: string[];
-        requestUserCredentials?: {
-            secretsKey: string;
-            additionalScopes?: {
-                gitlab?: string[];
-            };
+      allowedHosts?: string[];
+      requestUserCredentials?: {
+        secretsKey: string;
+        additionalScopes?: {
+          gitlab?: string[];
         };
+      };
     };
   };
 }
 
-// Required scopes for this plugin to work
-const REQUIRED_SCOPES = ['read_api', 'api'];
-
-// Check if token has sufficient scope
-const hasRequiredScope = (tokenScope: string): boolean => {
-  const scopes = tokenScope.split(' ');
-  return REQUIRED_SCOPES.some(required => scopes.includes(required));
-};
-
-// Auth environments to try (in order of priority)
-// Add more environment names here if your RHDH uses different names
-const AUTH_ENVIRONMENTS = ['development', 'production', 'staging', 'default'];
-
 export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
-  const { onChange, rawErrors, uiSchema } = props;
-  
+  const { onChange, rawErrors, formData, uiSchema } = props;
+
   const allowedHosts = uiSchema?.['ui:options']?.allowedHosts;
   const host = allowedHosts?.[0] || 'gitlab.com';
-  
+
+  const {
+    token,
+    tokenScope,
+    needsAuth,
+    insufficientScope,
+    isLoading: authLoading,
+    authError,
+    handleSignIn,
+    retryAuth,
+  } = useGitLabAuth();
+
   const [selectedGroup, setSelectedGroup] = useState<GitLabGroup | null>(null);
   const [selectedProject, setSelectedProject] = useState<GitLabProject | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [tokenScope, setTokenScope] = useState<string | null>(null);
-  const [authEnv, setAuthEnv] = useState<string>(AUTH_ENVIRONMENTS[0]); // Track which env works
-  const [needsAuth, setNeedsAuth] = useState(false);
-  const [insufficientScope, setInsufficientScope] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Try to get the GitLab token from the auth backend
-  const fetchToken = useCallback(async () => {
-    setIsLoading(true);
-    setAuthError(null);
-    setNeedsAuth(false);
-    setInsufficientScope(false);
-    setTokenScope(null);
-    
-    for (const env of AUTH_ENVIRONMENTS) {
-      try {
-        const response = await fetch(`/api/auth/gitlab/refresh?env=${env}`, { 
-          credentials: 'include',
-          headers: { 
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const accessToken = data.providerInfo?.accessToken;
-          const scope = data.providerInfo?.scope || '';
-          
-          if (accessToken) {
-            setAuthEnv(env); // Remember which environment worked
-            
-            if (!hasRequiredScope(scope)) {
-              setTokenScope(scope);
-              setInsufficientScope(true);
-              setIsLoading(false);
-              return;
-            }
-            
-            setToken(accessToken);
-            setTokenScope(scope);
-            setIsLoading(false);
-            return;
-          }
-        }
-      } catch {
-        // Continue to next environment
-      }
-    }
-    
-    setNeedsAuth(true);
-    setIsLoading(false);
-  }, []);
+  const [groups, setGroups] = useState<GitLabGroup[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [errorGroups, setErrorGroups] = useState<Error | null>(null);
 
+  const [projects, setProjects] = useState<GitLabProject[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [errorProjects, setErrorProjects] = useState<Error | null>(null);
+
+  const [retryKey, setRetryKey] = useState(0);
+  const restoredRef = useRef(false);
+
+  const makeHeaders = useCallback(
+    (): Record<string, string> =>
+      token ? { Authorization: `Bearer ${token}` } : {},
+    [token],
+  );
+
+  // Fetch all groups (paginated)
   useEffect(() => {
-    fetchToken();
-  }, [fetchToken]);
+    if (!token) return;
+    let cancelled = false;
 
-  // Handle GitLab sign-in via OAuth popup
-  const handleSignIn = useCallback(() => {
-    const width = 500;
-    const height = 700;
-    const left = window.screenX + (window.innerWidth - width) / 2;
-    const top = window.screenY + (window.innerHeight - height) / 2;
-    
-    const popup = window.open(
-      `/api/auth/gitlab/start?env=${authEnv}`,
-      'GitLab Sign In',
-      `width=${width},height=${height},left=${left},top=${top}`
-    );
-    
-    if (!popup) {
-      setAuthError('Popup was blocked. Please allow popups for this site.');
+    (async () => {
+      setLoadingGroups(true);
+      setErrorGroups(null);
+      try {
+        const all = await fetchAllPages<GitLabGroup>(
+          `https://${host}/api/v4/groups?min_access_level=50`,
+          makeHeaders(),
+        );
+        if (!cancelled) setGroups(all);
+      } catch (err) {
+        if (!cancelled)
+          setErrorGroups(
+            err instanceof Error ? err : new Error(String(err)),
+          );
+      } finally {
+        if (!cancelled) setLoadingGroups(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [host, token, makeHeaders, retryKey]);
+
+  // Fetch all projects for the selected group (paginated)
+  useEffect(() => {
+    if (!selectedGroup || !token) {
+      setProjects([]);
       return;
     }
-    
-    const checkPopup = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkPopup);
-        setTimeout(() => fetchToken(), 1000);
+    let cancelled = false;
+
+    (async () => {
+      setLoadingProjects(true);
+      setErrorProjects(null);
+      try {
+        const all = await fetchAllPages<GitLabProject>(
+          `https://${host}/api/v4/groups/${selectedGroup.id}/projects`,
+          makeHeaders(),
+        );
+        if (!cancelled) setProjects(all);
+      } catch (err) {
+        if (!cancelled)
+          setErrorProjects(
+            err instanceof Error ? err : new Error(String(err)),
+          );
+      } finally {
+        if (!cancelled) setLoadingProjects(false);
       }
-    }, 500);
-  }, [authEnv, fetchToken]);
+    })();
 
-  const getHeaders = useCallback((): Record<string, string> => {
-    if (!token) return {};
-    return { Authorization: `Bearer ${token}` };
-  }, [token]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroup, host, token, makeHeaders]);
 
-  const { value: groups, loading: loadingGroups, error: errorGroups } = useAsync(async () => {
-    if (!token) return [];
-    const headers = getHeaders();
-    const response = await fetch(`https://${host}/api/v4/groups?min_access_level=50&per_page=100`, { headers });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch groups: ${response.statusText}`);
+  // Restore group selection from formData (e.g. navigating back in scaffolder)
+  useEffect(() => {
+    if (restoredRef.current || !formData || groups.length === 0) return;
+    const parsed = parseRepoUrl(formData);
+    if (!parsed) return;
+
+    const match = groups.find(g => g.full_path === parsed.owner);
+    if (match) {
+      restoredRef.current = true;
+      setSelectedGroup(match);
     }
-    return (await response.json()) as GitLabGroup[];
-  }, [host, token, getHeaders]);
+  }, [formData, groups]);
 
-  const { value: projects, loading: loadingProjects } = useAsync(async () => {
-    if (!selectedGroup || !token) return [];
-    const headers = getHeaders();
-    const response = await fetch(`https://${host}/api/v4/groups/${selectedGroup.id}/projects?per_page=100`, { headers });
-    if (!response.ok) throw new Error(`Failed to fetch projects: ${response.statusText}`);
-    return (await response.json()) as GitLabProject[];
-  }, [selectedGroup, host, token, getHeaders]);
+  // Restore project selection from formData once projects are loaded
+  useEffect(() => {
+    if (!formData || !selectedGroup || projects.length === 0 || selectedProject)
+      return;
+    const parsed = parseRepoUrl(formData);
+    if (!parsed) return;
 
-  const handleGroupChange = (_: any, newValue: GitLabGroup | null) => {
+    const match = projects.find(
+      p => p.path_with_namespace.split('/').pop() === parsed.repo,
+    );
+    if (match) {
+      setSelectedProject(match);
+    }
+  }, [formData, selectedGroup, projects, selectedProject]);
+
+  const handleGroupChange = (
+    _event: React.ChangeEvent<{}>,
+    newValue: GitLabGroup | null,
+  ) => {
     setSelectedGroup(newValue);
     setSelectedProject(null);
-    onChange(''); 
+    setProjects([]);
+    setErrorProjects(null);
+    onChange('');
   };
 
-  const handleProjectChange = (_: any, newValue: GitLabProject | null) => {
+  const handleProjectChange = (
+    _event: React.ChangeEvent<{}>,
+    newValue: GitLabProject | null,
+  ) => {
     setSelectedProject(newValue);
-    if (newValue) {
+    if (newValue && selectedGroup) {
       const repoName = newValue.path_with_namespace.split('/').pop() || '';
-      const url = `${host}?owner=${encodeURIComponent(selectedGroup?.full_path || '')}&repo=${encodeURIComponent(repoName)}`;
-      onChange(url);
+      onChange(buildRepoUrl(host, selectedGroup.full_path, repoName));
     } else {
       onChange('');
     }
   };
 
-  if (isLoading) {
+  const retryGroups = useCallback(() => setRetryKey(k => k + 1), []);
+
+  // --- Render states ---
+
+  if (authLoading) {
     return (
       <Box p={2} display="flex" alignItems="center">
         <CircularProgress size={20} style={{ marginRight: 8 }} />
-        <Typography variant="body2">Checking GitLab authentication...</Typography>
+        <Typography variant="body2">
+          Checking GitLab authentication...
+        </Typography>
       </Box>
     );
   }
 
   if (needsAuth) {
     return (
-      <Box p={2} style={{ border: '1px solid #ccc', borderRadius: 4, backgroundColor: '#f5f5f5' }}>
+      <Box
+        p={2}
+        style={{
+          border: '1px solid #ccc',
+          borderRadius: 4,
+          backgroundColor: '#f5f5f5',
+        }}
+      >
         <Typography variant="body1" gutterBottom>
           <strong>GitLab Authentication Required</strong>
         </Typography>
         <Typography variant="body2" gutterBottom>
           Please sign in to GitLab to select a repository.
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
+        <Button
+          variant="contained"
+          color="primary"
           onClick={handleSignIn}
           style={{ marginTop: 8, marginRight: 8 }}
         >
           Sign in to GitLab
         </Button>
-        <Button 
-          variant="outlined" 
-          onClick={fetchToken}
+        <Button
+          variant="outlined"
+          onClick={retryAuth}
           style={{ marginTop: 8 }}
         >
           Retry
         </Button>
         {authError && (
-          <Typography color="error" variant="caption" display="block" style={{ marginTop: 8 }}>
+          <Typography
+            color="error"
+            variant="caption"
+            display="block"
+            style={{ marginTop: 8 }}
+          >
             {authError}
           </Typography>
         )}
@@ -224,24 +247,40 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
 
   if (insufficientScope) {
     return (
-      <Box p={2} style={{ border: '1px solid #f0ad4e', borderRadius: 4, backgroundColor: '#fcf8e3' }}>
-        <Typography variant="body1" gutterBottom style={{ color: '#8a6d3b' }}>
+      <Box
+        p={2}
+        style={{
+          border: '1px solid #f0ad4e',
+          borderRadius: 4,
+          backgroundColor: '#fcf8e3',
+        }}
+      >
+        <Typography
+          variant="body1"
+          gutterBottom
+          style={{ color: '#8a6d3b' }}
+        >
           <strong>Additional Permissions Required</strong>
         </Typography>
         <Typography variant="body2" gutterBottom>
-          Your GitLab token has <code>{tokenScope}</code> scope, but <code>read_api</code> is required.
+          Your GitLab token has <code>{tokenScope}</code> scope, but{' '}
+          <code>read_api</code> is required.
         </Typography>
         <Typography variant="body2" gutterBottom style={{ marginTop: 8 }}>
-          Please ask your administrator to add <code>read_api</code> to the GitLab OAuth scopes in <code>app-config.yaml</code>:
+          Please ask your administrator to add <code>read_api</code> to the
+          GitLab OAuth scopes in <code>app-config.yaml</code>:
         </Typography>
-        <Box component="pre" style={{ 
-          backgroundColor: '#fff', 
-          padding: 8, 
-          borderRadius: 4, 
-          fontSize: '0.85em',
-          overflow: 'auto'
-        }}>
-{`auth:
+        <Box
+          component="pre"
+          style={{
+            backgroundColor: '#fff',
+            padding: 8,
+            borderRadius: 4,
+            fontSize: '0.85em',
+            overflow: 'auto',
+          }}
+        >
+          {`auth:
   providers:
     gitlab:
       development:
@@ -250,22 +289,26 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
         </Box>
         <Typography variant="body2" gutterBottom style={{ marginTop: 8 }}>
           After the config is updated, revoke the app in{' '}
-          <a href={`https://${host}/-/profile/applications`} target="_blank" rel="noopener noreferrer">
+          <a
+            href={`https://${host}/-/profile/applications`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             GitLab Settings
           </a>{' '}
           and sign in again.
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
+        <Button
+          variant="contained"
+          color="primary"
           onClick={handleSignIn}
           style={{ marginTop: 8, marginRight: 8 }}
         >
           Sign in to GitLab
         </Button>
-        <Button 
-          variant="outlined" 
-          onClick={fetchToken}
+        <Button
+          variant="outlined"
+          onClick={retryAuth}
           style={{ marginTop: 8 }}
         >
           Retry
@@ -276,16 +319,27 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
 
   if (errorGroups) {
     return (
-      <Box p={2} style={{ border: '1px solid #d9534f', borderRadius: 4, backgroundColor: '#f2dede' }}>
-        <Typography variant="body1" gutterBottom style={{ color: '#a94442' }}>
+      <Box
+        p={2}
+        style={{
+          border: '1px solid #d9534f',
+          borderRadius: 4,
+          backgroundColor: '#f2dede',
+        }}
+      >
+        <Typography
+          variant="body1"
+          gutterBottom
+          style={{ color: '#a94442' }}
+        >
           <strong>Error Loading Groups</strong>
         </Typography>
         <Typography variant="body2" gutterBottom>
           {errorGroups.message}
         </Typography>
-        <Button 
-          variant="outlined" 
-          onClick={fetchToken}
+        <Button
+          variant="outlined"
+          onClick={retryGroups}
           style={{ marginTop: 8 }}
         >
           Retry
@@ -297,12 +351,12 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   return (
     <FormControl fullWidth error={rawErrors && rawErrors.length > 0}>
       <Autocomplete
-        options={groups || []}
-        getOptionLabel={(option) => option.full_path}
+        options={groups}
+        getOptionLabel={option => option.full_path}
         loading={loadingGroups}
         value={selectedGroup}
         onChange={handleGroupChange}
-        renderInput={(params) => (
+        renderInput={params => (
           <TextField
             {...params}
             label="Select Group (Owner Access)"
@@ -312,7 +366,9 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
               ...params.InputProps,
               endAdornment: (
                 <React.Fragment>
-                  {loadingGroups ? <CircularProgress color="inherit" size={20} /> : null}
+                  {loadingGroups ? (
+                    <CircularProgress color="inherit" size={20} />
+                  ) : null}
                   {params.InputProps.endAdornment}
                 </React.Fragment>
               ),
@@ -322,23 +378,27 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
       />
 
       <Autocomplete
-        options={projects || []}
-        getOptionLabel={(option) => option.name}
+        options={projects}
+        getOptionLabel={option => option.name}
         loading={loadingProjects}
         value={selectedProject}
         onChange={handleProjectChange}
         disabled={!selectedGroup}
-        renderInput={(params) => (
+        renderInput={params => (
           <TextField
             {...params}
             label="Select Repository"
             variant="outlined"
             margin="normal"
+            error={!!errorProjects}
+            helperText={errorProjects?.message}
             InputProps={{
               ...params.InputProps,
               endAdornment: (
                 <React.Fragment>
-                  {loadingProjects ? <CircularProgress color="inherit" size={20} /> : null}
+                  {loadingProjects ? (
+                    <CircularProgress color="inherit" size={20} />
+                  ) : null}
                   {params.InputProps.endAdornment}
                 </React.Fragment>
               ),
@@ -346,6 +406,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
           />
         )}
       />
+
       {rawErrors && rawErrors.length > 0 && (
         <FormHelperText error>{rawErrors[0]}</FormHelperText>
       )}

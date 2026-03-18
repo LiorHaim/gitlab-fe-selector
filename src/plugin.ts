@@ -10,6 +10,12 @@ export const GitLabGroupPickerFieldExtension = gitlabFeSelectorPlugin.provide(
   createScaffolderFieldExtension({
     name: 'GitLabGroupPicker',
     component: GitLabGroupPicker,
+    validation: (value, fieldValidation) => {
+      if (!value) {
+        fieldValidation.addError(
+          'Please select a GitLab group and repository.',
+        );
+      }
+    },
   }),
 );
-
