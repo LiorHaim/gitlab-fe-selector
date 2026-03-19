@@ -9,6 +9,7 @@ import {
   Button,
 } from '@material-ui/core';
 import Autocomplete from '@material-ui/lab/Autocomplete';
+import { useTemplateSecrets } from '@backstage/plugin-scaffolder-react';
 import { useGitLabAuth } from '../hooks/useGitLabAuth';
 import {
   GitLabGroup,
@@ -22,9 +23,6 @@ interface GitLabGroupPickerProps {
   onChange: (value: string) => void;
   rawErrors?: string[];
   formData?: string;
-  formContext?: {
-    setSecrets?: (secrets: Record<string, string>) => void;
-  };
   uiSchema?: {
     'ui:options'?: {
       allowedHosts?: string[];
@@ -39,12 +37,14 @@ interface GitLabGroupPickerProps {
 }
 
 export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
-  const { onChange, rawErrors, formData, formContext, uiSchema } = props;
+  const { onChange, rawErrors, formData, uiSchema } = props;
 
   const allowedHosts = uiSchema?.['ui:options']?.allowedHosts;
   const host = allowedHosts?.[0] || 'gitlab.com';
   const secretsKey =
     uiSchema?.['ui:options']?.requestUserCredentials?.secretsKey;
+
+  const { setSecrets } = useTemplateSecrets();
 
   const {
     token,
@@ -74,10 +74,10 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   // Pass the user's OAuth token to scaffolder secrets so downstream steps
   // (e.g. publish:gitlab) can use it via ${{ secrets.<secretsKey> }}
   useEffect(() => {
-    if (token && secretsKey && formContext?.setSecrets) {
-      formContext.setSecrets({ [secretsKey]: token });
+    if (token && secretsKey) {
+      setSecrets({ [secretsKey]: token });
     }
-  }, [token, secretsKey, formContext]);
+  }, [token, secretsKey, setSecrets]);
 
   const makeHeaders = useCallback(
     (): Record<string, string> =>
