@@ -22,6 +22,9 @@ interface GitLabGroupPickerProps {
   onChange: (value: string) => void;
   rawErrors?: string[];
   formData?: string;
+  formContext?: {
+    setSecrets?: (secrets: Record<string, string>) => void;
+  };
   uiSchema?: {
     'ui:options'?: {
       allowedHosts?: string[];
@@ -36,10 +39,12 @@ interface GitLabGroupPickerProps {
 }
 
 export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
-  const { onChange, rawErrors, formData, uiSchema } = props;
+  const { onChange, rawErrors, formData, formContext, uiSchema } = props;
 
   const allowedHosts = uiSchema?.['ui:options']?.allowedHosts;
   const host = allowedHosts?.[0] || 'gitlab.com';
+  const secretsKey =
+    uiSchema?.['ui:options']?.requestUserCredentials?.secretsKey;
 
   const {
     token,
@@ -65,6 +70,14 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
 
   const [retryKey, setRetryKey] = useState(0);
   const restoredRef = useRef(false);
+
+  // Pass the user's OAuth token to scaffolder secrets so downstream steps
+  // (e.g. publish:gitlab) can use it via ${{ secrets.<secretsKey> }}
+  useEffect(() => {
+    if (token && secretsKey && formContext?.setSecrets) {
+      formContext.setSecrets({ [secretsKey]: token });
+    }
+  }, [token, secretsKey, formContext]);
 
   const makeHeaders = useCallback(
     (): Record<string, string> =>
