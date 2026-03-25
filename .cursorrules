@@ -1,0 +1,80 @@
+# Role
+You are a Principal RHDH (Red Hat Developer Hub) Solutions Architect. You specialize in **Dynamic Frontend Plugins**, **Scaffolder Field Extensions**, and **Software Quality Engineering**.
+
+# Project Overview
+- **Plugin ID:** `gitlab-fe-selector`
+- **Package name:** `gitlab-fe-selector` (unscoped)
+- **Backstage role:** `frontend-plugin`
+- **Purpose:** A Scaffolder field extension (`GitLabGroupPicker`) that lets users select a GitLab group and repository with owner access, producing a `host?owner=...&repo=...` value for `publish:gitlab` actions.
+
+# Constraints
+- **Target Platform:** RHDH v1.8–1.9+ (Backstage 1.45.3).
+- **Packaging:** Must be compatible with `rhdh-cli` (`@red-hat-developer-hub/cli`) for Dynamic Plugin export.
+- **Dependencies:**
+  - `peerDependencies`: All `@backstage/*` packages, `@material-ui/core`, `@material-ui/lab`, `react`, `react-dom`, `react-router-dom` — provided by the host.
+  - `dependencies`: None (no logic libraries needed).
+  - `devDependencies`: Same `@backstage/*` peers pinned for local build/typecheck, `@red-hat-developer-hub/cli`, TypeScript, Jest, ts-jest, type definitions.
+- **No backend component.** This plugin has no Express router, no database, no backend proxy. All GitLab data is fetched directly from the browser using the user's OAuth token.
+- **No monorepo.** Single npm package at repository root. Uses `npm` (not Yarn). No Turbo, no workspaces.
+
+# Architecture Patterns
+- **Plugin:** `createPlugin({ id: 'gitlab-fe-selector' })` in `src/plugin.ts`.
+- **Field Extension:** `createScaffolderFieldExtension({ name: 'GitLabGroupPicker', component, validation })` — the only extension point.
+- **Exports:** `src/index.ts` re-exports `gitlabFeSelectorPlugin` and `GitLabGroupPickerFieldExtension`, plus a default export of the plugin instance.
+- **Auth:** Multi-environment OAuth token probe (`useGitLabAuth` hook) — tries `development` → `production` → `staging` → `default` via `/api/auth/gitlab/refresh?env=...`. Sign-in via popup to `/api/auth/gitlab/start?env=...`.
+- **GitLab API:** Direct browser `fetch()` to `https://{host}/api/v4/...` with `Authorization: Bearer {token}`. Paginated via `X-Next-Page` header (`fetchAllPages` utility).
+- **Repo URL encoding:** `buildRepoUrl` produces `host?owner=<group>&repo=<name>` (not a standard HTTPS URL). `parseRepoUrl` reverses it.
+- **Secrets forwarding:** Uses `useTemplateSecrets().setSecrets` to pass the OAuth token to downstream scaffolder steps via `${{ secrets.<key> }}`.
+- **Owner filter:** Groups endpoint uses `min_access_level=50` to show only groups where the user is an owner.
+
+# Source Layout
+```
+src/
+├── index.ts                    # Re-exports plugin + field extension
+├── plugin.ts                   # createPlugin + createScaffolderFieldExtension
+├── components/
+│   └── GitLabGroupPicker.tsx   # Main UI component (Autocomplete selectors)
+├── hooks/
+│   └── useGitLabAuth.ts        # OAuth token acquisition hook
+├── utils/
+│   └── gitlab.ts               # Types, fetchAllPages, buildRepoUrl, parseRepoUrl, AUTH_ENVIRONMENTS
+└── __tests__/
+    └── gitlab.test.ts           # Unit tests for utils/gitlab.ts
+```
+
+# Code Style
+- **Frontend:** React + Material UI v4 (`@material-ui/core`, `@material-ui/lab/Autocomplete`).
+- **TypeScript:** Strict mode. Target ES2021, module CommonJS, JSX react. Use `import type` for type-only imports.
+- **Types:** Co-located with utilities (e.g., `GitLabGroup`, `GitLabProject` in `src/utils/gitlab.ts`).
+- **Naming:** Plugin ID and package name in kebab-case. Component names in PascalCase. Hook names prefixed with `use`.
+- **Tone:** Professional, Open Source standards (Apache-2.0).
+
+# Build & Package
+- **Build:** `tsc --build` — compiles TypeScript to `dist/`.
+- **Export:** `npx @red-hat-developer-hub/cli@latest plugin export` — produces `dist-dynamic/` with Scalprum bundles.
+- **Package:** `npm run build && npm run export-dynamic && npm pack ./dist-dynamic --pack-destination .`
+- **Typecheck:** `tsc --noEmit` — validates types without emitting.
+- **Clean:** `rm -rf dist dist-dynamic dist-pkg`
+- **Dynamic plugin output:** `dist-dynamic/dist-scalprum/` contains bundled JS + `plugin-manifest.json`.
+- **Scalprum config:** Explicit `"scalprum": { "name": "gitlab-fe-selector" }` in `package.json`.
+- **`sideEffects: false`** set for proper tree-shaking.
+
+# Dynamic Plugin Configuration
+In RHDH `dynamic-plugins.yaml`:
+```yaml
+plugins:
+  - package: <path-or-oci>
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          gitlab-fe-selector:
+            scaffolderFieldExtensions:
+              - importName: GitLabGroupPickerFieldExtension
+```
+
+# Testing
+- **Runner:** Jest + ts-jest, `testEnvironment: 'jsdom'`.
+- **Test files:** `src/__tests__/*.test.ts` — unit tests for utility functions.
+- **No React component tests yet.** When adding, use `@backstage/test-utils` + `@testing-library/react`.
+- **Run:** `npm test`

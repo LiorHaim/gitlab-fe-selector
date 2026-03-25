@@ -19,3 +19,5 @@ export const GitLabGroupPickerFieldExtension = gitlabFeSelectorPlugin.provide(
     },
   }),
 );
+
+export default gitlabFeSelectorPlugin;

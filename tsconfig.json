@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
-    "lib": ["dom", "es2020"],
+    "target": "ES2021",
+    "module": "CommonJS",
+    "lib": ["DOM", "DOM.Iterable", "ES2021"],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -11,6 +11,8 @@
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "jsx": "react"
   },
   "include": ["src/**/*"]
