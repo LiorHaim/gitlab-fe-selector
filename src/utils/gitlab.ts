@@ -26,9 +26,12 @@ export const hasRequiredScope = (tokenScope: string): boolean => {
   return REQUIRED_SCOPES.some(required => scopes.includes(required));
 };
 
+const MAX_PAGES = 100;
+
 /**
  * Fetches all pages from a paginated GitLab API endpoint.
  * Uses the X-Next-Page response header to walk through pages.
+ * Guards against infinite loops, malformed headers, and rate limiting.
  */
 export async function fetchAllPages<T>(
   baseUrl: string,
@@ -37,23 +40,39 @@ export async function fetchAllPages<T>(
   const results: T[] = [];
   let page = 1;
 
-  while (true) {
+  for (let pageCount = 0; pageCount < MAX_PAGES; pageCount++) {
     const separator = baseUrl.includes('?') ? '&' : '?';
-    const response = await fetch(
-      `${baseUrl}${separator}page=${page}&per_page=100`,
-      { headers },
-    );
+    const url = `${baseUrl}${separator}page=${page}&per_page=100`;
+
+    let response = await fetch(url, { headers });
+
+    if (response.status === 429) {
+      const raw = parseInt(
+        response.headers.get('Retry-After') || '5',
+        10,
+      );
+      const delay = Math.min(isNaN(raw) ? 5 : raw, 30);
+      await new Promise(resolve => setTimeout(resolve, delay * 1000));
+      response = await fetch(url, { headers });
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.statusText}`);
     }
 
-    const data = (await response.json()) as T[];
-    results.push(...data);
+    const data = await response.json();
+    if (!Array.isArray(data)) {
+      throw new Error(
+        `Unexpected response: expected array, got ${typeof data}`,
+      );
+    }
+    results.push(...(data as T[]));
 
     const nextPage = response.headers.get('X-Next-Page');
     if (!nextPage) break;
-    page = parseInt(nextPage, 10);
+    const parsed = parseInt(nextPage, 10);
+    if (isNaN(parsed) || parsed <= page) break;
+    page = parsed;
   }
 
   return results;

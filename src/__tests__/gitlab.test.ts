@@ -130,6 +130,7 @@ describe('fetchAllPages', () => {
   it('throws on non-ok response', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
+      status: 500,
       statusText: 'Forbidden',
       headers: new Headers(),
     });
@@ -137,6 +138,94 @@ describe('fetchAllPages', () => {
     await expect(
       fetchAllPages('https://api.test/items', {}),
     ).rejects.toThrow('Failed to fetch: Forbidden');
+  });
+
+  it('throws when response is not an array', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ message: 'error' }),
+      headers: new Headers(),
+    });
+
+    await expect(
+      fetchAllPages('https://api.test/items', {}),
+    ).rejects.toThrow('Unexpected response: expected array');
+  });
+
+  it('stops when X-Next-Page is NaN', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: 1 }]),
+      headers: new Headers({ 'X-Next-Page': 'abc' }),
+    });
+
+    const result = await fetchAllPages('https://api.test/items', {});
+    expect(result).toEqual([{ id: 1 }]);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops when X-Next-Page does not advance', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ id: 1 }]),
+      headers: new Headers({ 'X-Next-Page': '1' }),
+    });
+
+    const result = await fetchAllPages('https://api.test/items', {});
+    expect(result).toEqual([{ id: 1 }]);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops after a bounded number of pages to prevent infinite loops', async () => {
+    let callCount = 0;
+    global.fetch = jest.fn().mockImplementation(() => {
+      callCount++;
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([{ id: callCount }]),
+        headers: new Headers({ 'X-Next-Page': String(callCount + 1) }),
+      });
+    });
+
+    const result = await fetchAllPages('https://api.test/items', {});
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.length).toBeLessThanOrEqual(100);
+    expect(callCount).toBeLessThanOrEqual(100);
+  });
+
+  it('retries once on 429 rate limit', async () => {
+    const items = [{ id: 1 }];
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers({ 'Retry-After': '0' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(items),
+        headers: new Headers(),
+      });
+
+    const result = await fetchAllPages('https://api.test/items', {});
+    expect(result).toEqual(items);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws if 429 persists after retry', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      headers: new Headers({ 'Retry-After': '0' }),
+    });
+
+    await expect(
+      fetchAllPages('https://api.test/items', {}),
+    ).rejects.toThrow('Failed to fetch: Too Many Requests');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });
 

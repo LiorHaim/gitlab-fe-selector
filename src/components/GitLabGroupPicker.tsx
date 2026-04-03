@@ -9,6 +9,8 @@ import {
   Button,
 } from '@material-ui/core';
 import Autocomplete from '@material-ui/lab/Autocomplete';
+import Alert from '@material-ui/lab/Alert';
+import AlertTitle from '@material-ui/lab/AlertTitle';
 import { useTemplateSecrets } from '@backstage/plugin-scaffolder-react';
 import { useGitLabAuth } from '../hooks/useGitLabAuth';
 import {
@@ -204,7 +206,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
 
   if (authLoading) {
     return (
-      <Box p={2} display="flex" alignItems="center">
+      <Box p={2} display="flex" alignItems="center" role="status">
         <CircularProgress size={20} style={{ marginRight: 8 }} />
         <Typography variant="body2">
           Checking GitLab authentication...
@@ -215,35 +217,25 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
 
   if (needsAuth) {
     return (
-      <Box
-        p={2}
-        style={{
-          border: '1px solid #ccc',
-          borderRadius: 4,
-          backgroundColor: '#f5f5f5',
-        }}
-      >
-        <Typography variant="body1" gutterBottom>
-          <strong>GitLab Authentication Required</strong>
-        </Typography>
+      <Alert severity="info">
+        <AlertTitle>GitLab Authentication Required</AlertTitle>
         <Typography variant="body2" gutterBottom>
           Please sign in to GitLab to select a repository.
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSignIn}
-          style={{ marginTop: 8, marginRight: 8 }}
-        >
-          Sign in to GitLab
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={retryAuth}
-          style={{ marginTop: 8 }}
-        >
-          Retry
-        </Button>
+        <Box mt={1}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSignIn}
+            size="small"
+            style={{ marginRight: 8 }}
+          >
+            Sign in to GitLab
+          </Button>
+          <Button variant="outlined" onClick={retryAuth} size="small">
+            Retry
+          </Button>
+        </Box>
         {authError && (
           <Typography
             color="error"
@@ -254,27 +246,14 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
             {authError}
           </Typography>
         )}
-      </Box>
+      </Alert>
     );
   }
 
   if (insufficientScope) {
     return (
-      <Box
-        p={2}
-        style={{
-          border: '1px solid #f0ad4e',
-          borderRadius: 4,
-          backgroundColor: '#fcf8e3',
-        }}
-      >
-        <Typography
-          variant="body1"
-          gutterBottom
-          style={{ color: '#8a6d3b' }}
-        >
-          <strong>Additional Permissions Required</strong>
-        </Typography>
+      <Alert severity="warning">
+        <AlertTitle>Additional Permissions Required</AlertTitle>
         <Typography variant="body2" gutterBottom>
           Your GitLab token has <code>{tokenScope}</code> scope, but{' '}
           <code>read_api</code> is required.
@@ -286,7 +265,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
         <Box
           component="pre"
           style={{
-            backgroundColor: '#fff',
+            backgroundColor: 'rgba(0,0,0,0.04)',
             padding: 8,
             borderRadius: 4,
             fontSize: '0.85em',
@@ -311,59 +290,44 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
           </a>{' '}
           and sign in again.
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSignIn}
-          style={{ marginTop: 8, marginRight: 8 }}
-        >
-          Sign in to GitLab
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={retryAuth}
-          style={{ marginTop: 8 }}
-        >
-          Retry
-        </Button>
-      </Box>
+        <Box mt={1}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSignIn}
+            size="small"
+            style={{ marginRight: 8 }}
+          >
+            Sign in to GitLab
+          </Button>
+          <Button variant="outlined" onClick={retryAuth} size="small">
+            Retry
+          </Button>
+        </Box>
+      </Alert>
     );
   }
 
   if (errorGroups) {
     return (
-      <Box
-        p={2}
-        style={{
-          border: '1px solid #d9534f',
-          borderRadius: 4,
-          backgroundColor: '#f2dede',
-        }}
+      <Alert
+        severity="error"
+        action={
+          <Button variant="outlined" onClick={retryGroups} size="small">
+            Retry
+          </Button>
+        }
       >
-        <Typography
-          variant="body1"
-          gutterBottom
-          style={{ color: '#a94442' }}
-        >
-          <strong>Error Loading Groups</strong>
-        </Typography>
-        <Typography variant="body2" gutterBottom>
-          {errorGroups.message}
-        </Typography>
-        <Button
-          variant="outlined"
-          onClick={retryGroups}
-          style={{ marginTop: 8 }}
-        >
-          Retry
-        </Button>
-      </Box>
+        <AlertTitle>Error Loading Groups</AlertTitle>
+        {errorGroups.message}
+      </Alert>
     );
   }
 
   return (
     <FormControl fullWidth error={rawErrors && rawErrors.length > 0}>
       <Autocomplete
+        id="gitlab-group-picker"
         options={groups}
         getOptionLabel={option => option.full_path}
         loading={loadingGroups}
@@ -391,6 +355,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
       />
 
       <Autocomplete
+        id="gitlab-project-picker"
         options={projects}
         getOptionLabel={option => option.name}
         loading={loadingProjects}

@@ -36,6 +36,8 @@ export function useGitLabAuth(): GitLabAuthState {
     setInsufficientScope(false);
     setTokenScope(null);
 
+    let lastError: string | null = null;
+
     for (const env of AUTH_ENVIRONMENTS) {
       try {
         const response = await fetch(`/api/auth/gitlab/refresh?env=${env}`, {
@@ -67,14 +69,18 @@ export function useGitLabAuth(): GitLabAuthState {
             setIsLoading(false);
             return;
           }
+        } else {
+          lastError = `Auth endpoint returned ${response.status} for env "${env}"`;
         }
-      } catch {
-        // Try next environment
+      } catch (err) {
+        lastError =
+          err instanceof Error ? err.message : 'Network error during auth';
       }
     }
 
     if (!mountedRef.current) return;
     setNeedsAuth(true);
+    if (lastError) setAuthError(lastError);
     setIsLoading(false);
   }, []);
 
