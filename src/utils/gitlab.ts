@@ -26,12 +26,24 @@ export const hasRequiredScope = (tokenScope: string): boolean => {
   return REQUIRED_SCOPES.some(required => scopes.includes(required));
 };
 
+export const isValidHost = (host: string): boolean =>
+  host.length > 0 &&
+  host.length <= 253 &&
+  !/[/\\?#\s]/.test(host) &&
+  !host.includes('..');
+
+export const isValidSecretsKey = (key: string): boolean =>
+  /^[\w.-]+$/.test(key);
+
 const MAX_PAGES = 100;
+const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_RETRY_AFTER_SECONDS = 10;
 
 /**
  * Fetches all pages from a paginated GitLab API endpoint.
  * Uses the X-Next-Page response header to walk through pages.
- * Guards against infinite loops, malformed headers, and rate limiting.
+ * Guards against infinite loops, malformed headers, and rate limiting
+ * with up to MAX_RATE_LIMIT_RETRIES retries per page on HTTP 429.
  */
 export async function fetchAllPages<T>(
   baseUrl: string,
@@ -46,12 +58,16 @@ export async function fetchAllPages<T>(
 
     let response = await fetch(url, { headers });
 
-    if (response.status === 429) {
+    for (
+      let attempt = 0;
+      attempt < MAX_RATE_LIMIT_RETRIES && response.status === 429;
+      attempt++
+    ) {
       const raw = parseInt(
-        response.headers.get('Retry-After') || '5',
+        response.headers.get('Retry-After') || '2',
         10,
       );
-      const delay = Math.min(isNaN(raw) ? 5 : raw, 30);
+      const delay = Math.min(isNaN(raw) ? 2 : raw, MAX_RETRY_AFTER_SECONDS);
       await new Promise(resolve => setTimeout(resolve, delay * 1000));
       response = await fetch(url, { headers });
     }
@@ -90,7 +106,10 @@ export function parseRepoUrl(
   formData: string,
 ): { host: string; owner: string; repo: string } | null {
   if (!formData) return null;
-  const [host, query] = formData.split('?');
+  const qIndex = formData.indexOf('?');
+  if (qIndex === -1) return null;
+  const host = formData.slice(0, qIndex);
+  const query = formData.slice(qIndex + 1);
   if (!host || !query) return null;
 
   const params = new URLSearchParams(query);

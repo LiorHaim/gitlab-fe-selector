@@ -4,6 +4,8 @@ import {
   parseRepoUrl,
   fetchAllPages,
   AUTH_ENVIRONMENTS,
+  isValidHost,
+  isValidSecretsKey,
 } from '../utils/gitlab';
 
 // --- hasRequiredScope ---
@@ -193,7 +195,7 @@ describe('fetchAllPages', () => {
     expect(callCount).toBeLessThanOrEqual(100);
   });
 
-  it('retries once on 429 rate limit', async () => {
+  it('retries on 429 rate limit and succeeds', async () => {
     const items = [{ id: 1 }];
     global.fetch = jest
       .fn()
@@ -214,7 +216,40 @@ describe('fetchAllPages', () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('throws if 429 persists after retry', async () => {
+  it('retries up to 3 times on repeated 429', async () => {
+    const items = [{ id: 1 }];
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers({ 'Retry-After': '0' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers({ 'Retry-After': '0' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers({ 'Retry-After': '0' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(items),
+        headers: new Headers(),
+      });
+
+    const result = await fetchAllPages('https://api.test/items', {});
+    expect(result).toEqual(items);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it('throws if 429 persists after all retries', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 429,
@@ -225,7 +260,7 @@ describe('fetchAllPages', () => {
     await expect(
       fetchAllPages('https://api.test/items', {}),
     ).rejects.toThrow('Failed to fetch: Too Many Requests');
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -243,5 +278,89 @@ describe('AUTH_ENVIRONMENTS', () => {
       'staging',
       'default',
     ]);
+  });
+});
+
+// --- isValidHost ---
+
+describe('isValidHost', () => {
+  it('accepts standard hostnames', () => {
+    expect(isValidHost('gitlab.com')).toBe(true);
+    expect(isValidHost('gitlab.example.com')).toBe(true);
+    expect(isValidHost('my-gitlab.internal')).toBe(true);
+    expect(isValidHost('10.0.0.1')).toBe(true);
+  });
+
+  it('rejects empty string', () => {
+    expect(isValidHost('')).toBe(false);
+  });
+
+  it('rejects hosts with path separators', () => {
+    expect(isValidHost('evil.com/../../etc')).toBe(false);
+    expect(isValidHost('host\\path')).toBe(false);
+  });
+
+  it('rejects hosts with query or fragment characters', () => {
+    expect(isValidHost('host?query=1')).toBe(false);
+    expect(isValidHost('host#frag')).toBe(false);
+  });
+
+  it('rejects hosts with whitespace', () => {
+    expect(isValidHost('host name')).toBe(false);
+    expect(isValidHost('host\tname')).toBe(false);
+  });
+
+  it('rejects path traversal attempts', () => {
+    expect(isValidHost('evil..com')).toBe(false);
+    expect(isValidHost('..hidden')).toBe(false);
+  });
+
+  it('rejects hosts exceeding DNS length limit', () => {
+    expect(isValidHost('a'.repeat(254))).toBe(false);
+  });
+
+  it('accepts hosts at the DNS length limit', () => {
+    expect(isValidHost('a'.repeat(253))).toBe(true);
+  });
+});
+
+// --- isValidSecretsKey ---
+
+describe('isValidSecretsKey', () => {
+  it('accepts typical secret key names', () => {
+    expect(isValidSecretsKey('GITLAB_TOKEN')).toBe(true);
+    expect(isValidSecretsKey('gitlab_token')).toBe(true);
+    expect(isValidSecretsKey('my.secret.key')).toBe(true);
+    expect(isValidSecretsKey('key-with-dashes')).toBe(true);
+  });
+
+  it('rejects empty string', () => {
+    expect(isValidSecretsKey('')).toBe(false);
+  });
+
+  it('rejects keys with spaces', () => {
+    expect(isValidSecretsKey('my key')).toBe(false);
+  });
+
+  it('rejects keys with template syntax characters', () => {
+    expect(isValidSecretsKey('key${')).toBe(false);
+    expect(isValidSecretsKey('key{val}')).toBe(false);
+  });
+
+  it('rejects keys with special characters', () => {
+    expect(isValidSecretsKey('key;drop')).toBe(false);
+    expect(isValidSecretsKey('key=val')).toBe(false);
+  });
+});
+
+// --- parseRepoUrl edge case ---
+
+describe('parseRepoUrl edge cases', () => {
+  it('preserves values containing question marks', () => {
+    expect(parseRepoUrl('host?owner=a&repo=b%3Fc')).toEqual({
+      host: 'host',
+      owner: 'a',
+      repo: 'b?c',
+    });
   });
 });

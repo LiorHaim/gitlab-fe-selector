@@ -22,10 +22,15 @@ export function useGitLabAuth(): GitLabAuthState {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const popupIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     return () => {
       mountedRef.current = false;
+      if (popupIntervalRef.current) {
+        clearInterval(popupIntervalRef.current);
+        popupIntervalRef.current = null;
+      }
     };
   }, []);
 
@@ -105,13 +110,19 @@ export function useGitLabAuth(): GitLabAuthState {
       return;
     }
 
-    const checkPopup = setInterval(() => {
+    if (popupIntervalRef.current) {
+      clearInterval(popupIntervalRef.current);
+    }
+
+    popupIntervalRef.current = setInterval(() => {
       if (!mountedRef.current) {
-        clearInterval(checkPopup);
+        clearInterval(popupIntervalRef.current!);
+        popupIntervalRef.current = null;
         return;
       }
       if (popup.closed) {
-        clearInterval(checkPopup);
+        clearInterval(popupIntervalRef.current!);
+        popupIntervalRef.current = null;
         setTimeout(() => {
           if (mountedRef.current) fetchToken();
         }, 1000);

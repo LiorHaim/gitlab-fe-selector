@@ -19,6 +19,8 @@ import {
   fetchAllPages,
   buildRepoUrl,
   parseRepoUrl,
+  isValidHost,
+  isValidSecretsKey,
 } from '../utils/gitlab';
 
 interface GitLabGroupPickerProps {
@@ -42,7 +44,8 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   const { onChange, rawErrors, formData, uiSchema } = props;
 
   const allowedHosts = uiSchema?.['ui:options']?.allowedHosts;
-  const host = allowedHosts?.[0] || 'gitlab.com';
+  const hostRaw = allowedHosts?.[0] || 'gitlab.com';
+  const host = isValidHost(hostRaw) ? hostRaw : 'gitlab.com';
   const secretsKey =
     uiSchema?.['ui:options']?.requestUserCredentials?.secretsKey;
 
@@ -76,7 +79,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   // Pass the user's OAuth token to scaffolder secrets so downstream steps
   // (e.g. publish:gitlab) can use it via ${{ secrets.<secretsKey> }}
   useEffect(() => {
-    if (token && secretsKey) {
+    if (token && secretsKey && isValidSecretsKey(secretsKey)) {
       setSecrets({ [secretsKey]: token });
     }
   }, [token, secretsKey, setSecrets]);
@@ -129,7 +132,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
       setErrorProjects(null);
       try {
         const all = await fetchAllPages<GitLabProject>(
-          `https://${host}/api/v4/groups/${selectedGroup.id}/projects`,
+          `https://${host}/api/v4/groups/${encodeURIComponent(selectedGroup.id)}/projects`,
           makeHeaders(),
         );
         if (!cancelled) setProjects(all);
@@ -158,6 +161,11 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
     if (match) {
       restoredRef.current = true;
       setSelectedGroup(match);
+    } else {
+      console.warn(
+        `[GitLabGroupPicker] Previously selected group "${parsed.owner}" is no longer available. ` +
+          'It may have been deleted or your access may have changed.',
+      );
     }
   }, [formData, groups]);
 
@@ -177,7 +185,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   }, [formData, selectedGroup, projects, selectedProject]);
 
   const handleGroupChange = (
-    _event: React.ChangeEvent<{}>,
+    _event: React.ChangeEvent<Record<string, never>>,
     newValue: GitLabGroup | null,
   ) => {
     setSelectedGroup(newValue);
@@ -188,7 +196,7 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   };
 
   const handleProjectChange = (
-    _event: React.ChangeEvent<{}>,
+    _event: React.ChangeEvent<Record<string, never>>,
     newValue: GitLabProject | null,
   ) => {
     setSelectedProject(newValue);
@@ -203,6 +211,19 @@ export const GitLabGroupPicker = (props: GitLabGroupPickerProps) => {
   const retryGroups = useCallback(() => setRetryKey(k => k + 1), []);
 
   // --- Render states ---
+
+  if (!isValidHost(hostRaw)) {
+    return (
+      <Alert severity="error">
+        <AlertTitle>Invalid Host Configuration</AlertTitle>
+        <Typography variant="body2">
+          The configured GitLab host <code>{hostRaw}</code> is not a valid
+          hostname. Please check your template&apos;s{' '}
+          <code>allowedHosts</code> configuration.
+        </Typography>
+      </Alert>
+    );
+  }
 
   if (authLoading) {
     return (
