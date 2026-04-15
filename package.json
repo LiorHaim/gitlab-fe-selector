@@ -1,6 +1,6 @@
 {
-  "name": "gitlab-fe-selector",
-  "version": "1.4.0",
+  "name": "@liorhaim/gitlab-fe-selector-dynamic",
+  "version": "1.5.0",
   "description": "A RHDH 1.8 Frontend Plugin for selecting GitLab groups and repositories with owner access.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,11 +28,11 @@
     "role": "frontend-plugin",
     "pluginId": "gitlab-fe-selector",
     "pluginPackages": [
-      "gitlab-fe-selector"
+      "@liorhaim/gitlab-fe-selector-dynamic"
     ]
   },
   "scalprum": {
-    "name": "gitlab-fe-selector",
+    "name": "liorhaim.gitlab-fe-selector-dynamic",
     "exposedModules": {
       "PluginRoot": "./src/index.ts"
     }

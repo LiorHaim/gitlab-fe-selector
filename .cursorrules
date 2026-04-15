@@ -3,7 +3,7 @@ You are a Principal RHDH (Red Hat Developer Hub) Solutions Architect. You specia
 
 # Project Overview
 - **Plugin ID:** `gitlab-fe-selector`
-- **Package name:** `gitlab-fe-selector` (unscoped)
+- **Package name:** `@liorhaim/gitlab-fe-selector-dynamic` (scoped)
 - **Backstage role:** `frontend-plugin`
 - **Purpose:** A Scaffolder field extension (`GitLabGroupPicker`) that lets users select a GitLab group and repository with owner access, producing a `host?owner=...&repo=...` value for `publish:gitlab` actions.
 
@@ -56,7 +56,7 @@ src/
 - **Typecheck:** `tsc --noEmit` — validates types without emitting.
 - **Clean:** `rm -rf dist dist-dynamic dist-pkg`
 - **Dynamic plugin output:** `dist-dynamic/dist-scalprum/` contains bundled JS + `plugin-manifest.json`.
-- **Scalprum config:** Explicit `"scalprum": { "name": "gitlab-fe-selector" }` in `package.json`.
+- **Scalprum config:** Explicit `"scalprum": { "name": "liorhaim.gitlab-fe-selector-dynamic" }` in `package.json`.
 - **`sideEffects: false`** set for proper tree-shaking.
 
 # Dynamic Plugin Configuration
@@ -68,7 +68,7 @@ plugins:
     pluginConfig:
       dynamicPlugins:
         frontend:
-          gitlab-fe-selector:
+          liorhaim.gitlab-fe-selector-dynamic:
             scaffolderFieldExtensions:
               - importName: GitLabGroupPickerFieldExtension
 ```

@@ -198,7 +198,7 @@ npx jest --watch
 A pre-built OCI image is available on quay.io:
 
 ```
-quay.io/rh_ee_lhaim/plugin-gitlab-fe-selector:1.4.0
+quay.io/rh_ee_lhaim/plugin-gitlab-fe-selector:1.5.0
 quay.io/rh_ee_lhaim/plugin-gitlab-fe-selector:latest
 ```
 
@@ -206,12 +206,12 @@ Configure in `dynamic-plugins.yaml`:
 
 ```yaml
 plugins:
-  - package: oci://quay.io/rh_ee_lhaim/plugin-gitlab-fe-selector:1.4.0!gitlab-fe-selector
+  - package: oci://quay.io/rh_ee_lhaim/plugin-gitlab-fe-selector:1.5.0!liorhaim-gitlab-fe-selector-dynamic
     disabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
-          gitlab-fe-selector:
+          liorhaim.gitlab-fe-selector-dynamic:
             scaffolderFieldExtensions:
               - importName: GitLabGroupPickerFieldExtension
 ```
@@ -225,10 +225,10 @@ npm run export-dynamic
 
 # Package as OCI image (requires podman or docker)
 npx @red-hat-developer-hub/cli@latest plugin package \
-  --tag quay.io/YOUR_ORG/plugin-gitlab-fe-selector:1.4.0
+  --tag quay.io/YOUR_ORG/plugin-gitlab-fe-selector:1.5.0
 
 # Push to registry
-podman push quay.io/YOUR_ORG/plugin-gitlab-fe-selector:1.4.0
+podman push quay.io/YOUR_ORG/plugin-gitlab-fe-selector:1.5.0
 ```
 
 #### OCI Packaging Options
@@ -247,18 +247,18 @@ podman push quay.io/YOUR_ORG/plugin-gitlab-fe-selector:1.4.0
 npm run package
 ```
 
-This generates `gitlab-fe-selector-dynamic-1.4.0.tgz` in the project root.
+This generates `liorhaim-gitlab-fe-selector-dynamic-1.5.0.tgz` in the project root.
 
 Configure in `dynamic-plugins.yaml`:
 
 ```yaml
 plugins:
-  - package: ./local-plugins/gitlab-fe-selector-dynamic-1.4.0.tgz
+  - package: ./local-plugins/liorhaim-gitlab-fe-selector-dynamic-1.5.0.tgz
     disabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
-          gitlab-fe-selector:
+          liorhaim.gitlab-fe-selector-dynamic:
             scaffolderFieldExtensions:
               - importName: GitLabGroupPickerFieldExtension
 ```
@@ -397,7 +397,7 @@ The plugin automatically retries up to 3 times with the server's `Retry-After` d
 
 ## Changelog
 
-### 1.4.0
+### 1.5.0
 
 - Add input validation for host (`isValidHost`) and secrets key (`isValidSecretsKey`)
 - Add retry loop with up to 3 retries on HTTP 429 rate limiting
@@ -409,7 +409,7 @@ The plugin automatically retries up to 3 times with the server's `Retry-After` d
 - Add ESLint with `@typescript-eslint` for static analysis
 - Add 10 React component smoke tests covering all render states
 - Bump test count from 25 to 50
-- OCI image: `quay.io/rh_ee_lhaim/plugin-gitlab-fe-selector:1.4.0`
+- OCI image: `quay.io/rh_ee_lhaim/plugin-gitlab-fe-selector:1.5.0`
 
 ### 1.3.2
 
